@@ -182,3 +182,77 @@ uv run python replace_terms.py
 ### Результат
 
 Папка [knowledge_base](knowledge_base): 32 документа в Markdown, по одной сущности на файл, всего около 16 700 слов.
+
+## Задание 3. Создание векторного индекса базы знаний
+
+### Модель эмбеддингов
+
+| Параметр | Значение |
+| --- | --- |
+| Модель | intfloat/multilingual-e5-small (выбрана в задании 1) |
+| Репозиторий | <https://huggingface.co/intfloat/multilingual-e5-small> |
+| Размер эмбеддинга | 384 |
+| Максимальная длина входа | 512 токенов |
+| Префиксы | `passage:` для чанков, `query:` для запросов |
+
+Модель подключена через `HuggingFaceEmbeddings` из `langchain-huggingface`, векторы нормируются.
+
+### Чанки
+
+Документы режет `RecursiveCharacterTextSplitter` из LangChain: длина считается в словах, чанк до 300 слов, перекрытие 50 слов. Сплиттер режет по абзацам, затем по строкам и словам. К каждому чанку добавлен заголовок документа, чтобы чанк из середины статьи не терял, о ком идёт речь.
+
+Метаданные чанка:
+
+| Поле | Содержимое |
+| --- | --- |
+| `source` | путь к файлу, например `knowledge_base/kael_solvane.md` |
+| `title` | заголовок документа |
+| `chunk_id` | `<имя файла>:<номер чанка>`, он же id в индексе |
+| `chunk` | номер чанка в документе |
+| `start_index` | позиция начала чанка в файле, в символах |
+
+Получилось 78 чанков из 32 документов, от 76 до 303 слов, медиана 226. Самый длинный чанк занимает 489 токенов, то есть все помещаются в лимит модели без обрезки.
+
+### Индекс
+
+FAISS `IndexFlatL2`, точный поиск по нормированным векторам. Индекс сохранён в [faiss_index](faiss_index): `index.faiss` с векторами и `index.pkl` с текстами и метаданными чанков, вместе 227 КБ.
+
+Код: [build_index.py](build_index.py). Время на Intel Core Ultra 9 285H без GPU: загрузка модели из локального кеша 12 с, эмбеддинги 78 чанков и построение индекса 9.5 с.
+
+```bash
+uv run python build_index.py
+uv run pytest test_index.py
+```
+
+### Проверка качества
+
+[test_index.py](test_index.py) задаёт индексу три вопроса на русском и проверяет, что среди трёх найденных чанков есть нужный документ. Все три теста проходят.
+
+| Запрос | Ожидаемый документ |
+| --- | --- |
+| На какой планете родился Kael Solvane? | kael_solvane.md |
+| Что такое Void Core и чем он вооружён? | vc_1_orbital_battle_station.md |
+| Кто такие Grakkar и откуда они родом? | grakkar.md |
+
+### Пример запроса
+
+```python
+from build_index import load_index
+
+index = load_index()
+for doc, score in index.similarity_search_with_score("На какой планете родился Kael Solvane?", k=3):
+    print(f"{score:.3f}", doc.metadata["chunk_id"], doc.page_content[:200])
+```
+
+Найденные чанки (расстояние L2, чем меньше, тем ближе):
+
+```text
+0.355 kael_solvane:0  Kael Solvane was a legendary flux-sensitive human male who was a Sentari Knight
+                      of the Stellar Concord and the prophesied Foretold One of the Sentari Order...
+0.379 kael_solvane:1  A confluence in the Synth Flux, Kael Solvane was born on the desert planet of
+                      Drassa in the Far Fringe Territories in 41 BBO. He was the son of Mira Solvane...
+0.405 taren_solvane:0 Taren Solvane, a flux-sensitive human male, was a legendary Sentari Master who
+                      fought in the Stellar Civil War during the reign of the Stellar Dominion...
+```
+
+Второй чанк содержит ответ: Kael Solvane родился на пустынной планете Drassa.
