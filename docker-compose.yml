@@ -1,0 +1,8 @@
+services:
+  bot:
+    build: .
+    env_file: .env
+    volumes:
+      # индекс FAISS: index.faiss и index.pkl из build_index.py
+      - ./faiss_index:/app/faiss_index:ro
+    restart: unless-stopped
