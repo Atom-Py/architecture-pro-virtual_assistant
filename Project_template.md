@@ -135,3 +135,50 @@ FAISS. На нашем объёме поиск занимает миллисек
 16. ann-benchmarks: <https://ann-benchmarks.com/>
 17. LangChain FAISS: <https://github.com/langchain-ai/langchain-community/blob/main/libs/community/langchain_community/vectorstores/faiss.py>
 18. Европейская комиссия, решения о достаточности защиты данных: <https://commission.europa.eu/law/law-topic/data-protection/international-dimension-data-protection/adequacy-decisions_en>
+
+## Задание 2. Подготовка базы знаний
+
+Взята вселенная Star Wars: 32 статьи англоязычной Wookieepedia (<https://starwars.fandom.com>). Это 10 персонажей, 7 планет, 6 видов техники и технологий, 5 организаций и понятий, 3 события и 1 раса.
+
+### Получение текста
+
+Скрипт [fetch_pages.py](fetch_pages.py) получает HTML статьи через MediaWiki API и оставляет только абзацы основного текста, без сносок, инфобоксов и цитат. Абзацы берутся по порядку начиная с вводной части, пока не наберётся 450 слов. Исходные тексты сохраняются в `raw/`, в репозиторий они не входят.
+
+### Замена терминов
+
+Словарь [terms_map.json](terms_map.json) содержит 410 пар: исходное название и вымышленное. Заменены:
+
+- имена и фамилии персонажей, причём по отдельности, чтобы заменились и Luke Skywalker, и просто Skywalker;
+- планеты, расы, корабли, техника, организации и события;
+- понятия вселенной: Force, dark side, lightsaber, droid, Padawan и другие;
+- летоисчисление BBY и ABY.
+
+| Исходное | Вымышленное |
+| --- | --- |
+| Darth Vader | Xarn Velgor |
+| Death Star | Void Core |
+| Force | Synth Flux |
+| Jedi | Sentari |
+| Sith | Vorrak |
+| Tatooine | Drassa |
+| Millennium Falcon | Eternal Talon |
+| lightsaber | lumen blade |
+
+Скрипт [replace_terms.py](replace_terms.py) заменяет термины одним регулярным выражением:
+
+- длинные термины проверяются раньше коротких, поэтому Darth Vader заменяется целиком;
+- совпадает только целое слово с учётом регистра, поэтому заменяется Force, а обычное слово force нет;
+- артикль a/an перед термином подбирается под новое слово.
+
+После замены скрипт проверяет, что ни один термин не остался в другом регистре. Имя файла строится из нового заголовка.
+
+Запуск:
+
+```bash
+uv run python fetch_pages.py
+uv run python replace_terms.py
+```
+
+### Результат
+
+Папка [knowledge_base](knowledge_base): 32 документа в Markdown, по одной сущности на файл, всего около 16 700 слов.
