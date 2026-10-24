@@ -21,6 +21,9 @@ RAG: поиск по индексу FAISS и ответ LLM с few-shot и Chain
              или с паролями и ключами не передаются в LLM;
   sanitize - из чанков вырезаются предложения с командами для модели.
 
+Если update_index.py обновил индекс, перед следующим вопросом он
+перечитывается: изменилось время изменения faiss_index/index.faiss.
+
 LLM вызывается через OpenAI-совместимый API, адрес, ключ и модель
 берутся из .env: LLM_BASE_URL, LLM_API_KEY, LLM_MODEL.
 
@@ -40,7 +43,7 @@ from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from build_index import load_index
+from build_index import INDEX_DIR, load_index
 
 TOP_K = 4
 MAX_DISTANCE = 0.5
@@ -185,6 +188,7 @@ class Rag:
             raise ValueError(msg)
         self.guards = guards
         self.index = load_index()
+        self.index_mtime = (INDEX_DIR / "index.faiss").stat().st_mtime
         self.llm = ChatOpenAI(
             base_url=environ["LLM_BASE_URL"],
             api_key=environ["LLM_API_KEY"],
@@ -193,7 +197,20 @@ class Rag:
             timeout=120,
         )
 
+    def reload_if_updated(self) -> None:
+        mtime = (INDEX_DIR / "index.faiss").stat().st_mtime
+        if mtime == self.index_mtime:
+            return
+        try:
+            self.index = load_index(self.index.embeddings)
+        except Exception:
+            log.exception("не удалось перечитать индекс, работаю со старым")
+            return
+        self.index_mtime = mtime
+        log.info("индекс перечитан, векторов: %d", self.index.index.ntotal)
+
     def ask(self, question: str) -> Answer:
+        self.reload_if_updated()
         found = self.index.similarity_search_with_score(question, k=TOP_K)
         distances = [float(distance) for _, distance in found]
         chunks = [doc for doc, distance in found if distance <= MAX_DISTANCE]

@@ -28,6 +28,7 @@ async def main() -> None:
     # httpx пишет адрес LLM на уровне INFO, поэтому только WARNING
     basicConfig(level=WARNING, format="%(asctime)s %(name)s %(message)s")
     log.setLevel(INFO)
+    getLogger("rag").setLevel(INFO)
     load_dotenv()
     allowed = {int(user) for user in environ["TELEGRAM_ALLOWED_USERS"].split(",")}
     rag = Rag()
