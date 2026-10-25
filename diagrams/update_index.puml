@@ -1,0 +1,47 @@
+@startuml update_index
+title Ежедневное обновление индекса базы знаний
+
+skinparam componentStyle rectangle
+left to right direction
+
+actor "Автор документов" as author
+actor "Пользователь Telegram" as user
+
+folder "knowledge_base/" as kb {
+  file "документы .md" as docs
+}
+
+node "Docker Compose" {
+  node "updater" {
+    component "supercronic\n0 6 * * * (06:00 UTC)" as cron
+    component "update_index.py" as script
+    component "RecursiveCharacterTextSplitter\nчанки по 300 слов" as splitter
+    component "multilingual-e5-small\nэмбеддинги" as embedder
+  }
+  node "bot" {
+    component "bot.py + rag.py" as rag
+  }
+}
+
+folder "faiss_index/" {
+  file "manifest.json\nSHA-256 документов" as manifest
+  file "index.faiss\nвекторы" as faiss
+  file "index.pkl\nтексты и метаданные" as pkl
+}
+
+folder "logs/" {
+  file "update.log" as log
+}
+
+author --> docs : новый или изменённый\nдокумент
+cron --> script : запуск по расписанию,\nпри ошибке 3 попытки
+script --> docs : 1. сканирует файлы,\nсчитает SHA-256
+script --> manifest : 2. сравнивает с прошлой сборкой
+script --> splitter : 3. новые и изменённые документы
+splitter --> embedder : 4. чанки
+embedder --> faiss : 5. новые векторы,\nустаревшие удаляются
+script --> pkl : 5. тексты чанков
+script --> log : время, файлы, чанки,\nразмер индекса, ошибки
+user --> rag : вопрос
+rag --> faiss : перечитывает индекс,\nесли index.faiss изменился
+@enduml

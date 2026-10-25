@@ -1,0 +1,20 @@
+services:
+  bot:
+    build: .
+    env_file: .env
+    volumes:
+      # индекс FAISS из build_index.py и update_index.py
+      - ./faiss_index:/app/faiss_index:ro
+      # журнал запросов logs/logs.jsonl
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  updater:
+    build: .
+    # supercronic запускает update_index.py по расписанию из crontab
+    command: ["supercronic", "crontab"]
+    volumes:
+      - ./knowledge_base:/app/knowledge_base:ro
+      - ./faiss_index:/app/faiss_index
+      - ./logs:/app/logs
+    restart: unless-stopped
