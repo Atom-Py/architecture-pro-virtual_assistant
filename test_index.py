@@ -12,8 +12,8 @@ from langchain_community.vectorstores import FAISS
 from build_index import load_index
 
 CASES = [
-    ("На какой планете родился Kael Solvane?", "kael_solvane.md"),
-    ("Что такое Void Core и чем он вооружён?", "vc_1_orbital_battle_station.md"),
+    ("Кто был учителем Ivo-Ren Malden?", "ivo_ren_malden.md"),
+    ("Как называются луны Drassa?", "drassa.md"),
     ("Кто такие Grakkar и откуда они родом?", "grakkar.md"),
 ]
 

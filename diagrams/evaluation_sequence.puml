@@ -1,0 +1,56 @@
+@startuml evaluation_sequence
+title Обработка запроса и оценка на золотом наборе
+
+actor "Пользователь\nTelegram" as user
+participant "evaluate.py" as evaluate
+participant "bot.py" as bot
+participant "rag.py\nRag.ask" as rag
+database "faiss_index/" as index
+participant "multilingual-e5-small" as encoder
+participant "LLM" as llm
+database "logs/logs.jsonl" as querylog
+
+== Обработка запроса ==
+user -> bot : вопрос
+bot -> rag : ask(вопрос)
+rag -> index : изменился index.faiss?
+opt индекс обновлён
+  rag -> index : перечитать индекс
+  note right of rag : сбой: индекс не читается,\nработа со старым индексом
+end
+rag -> encoder : эмбеддинг "query: вопрос"
+rag -> index : 4 ближайших чанка
+note right of index : сбой: пустой индекс,\nчанков нет
+rag -> rag : порог расстояния 0.5,\nфильтр, очистка
+note right of rag : невалидный чанк (команды\nдля модели, пароли)\nотбрасывается фильтром
+alt подходящих чанков нет
+  rag -> querylog : запрос, chunks_found=false,\nsuccess=false
+  rag --> bot : "Я не знаю."
+  bot --> user : "Я не знаю."
+else чанки есть
+  rag -> llm : системный промпт, few-shot,\nчанки, вопрос
+  alt ответ получен
+    llm --> rag : шаги и ответ
+    rag -> querylog : запрос, ответ, источники,\nдлина, success
+    rag --> bot : ответ и источники
+    bot --> user : ответ и источники
+  else сбой генерации
+    llm --> rag : ошибка API или таймаут
+    rag -> querylog : запрос, error
+    rag --> bot : исключение
+    bot --> user : "Не удалось получить ответ"
+  end
+end
+
+== Оценка на золотом наборе ==
+evaluate -> evaluate : чтение golden_questions.txt
+loop каждый вопрос
+  evaluate -> rag : ask(вопрос)
+  rag --> evaluate : ответ, источники\nили ошибка LLM
+  evaluate -> evaluate : ответ найден?\nполнота по ключевым словам,\nверный ли источник, итог
+end
+evaluate -> evaluate : отчёт logs/evaluation.md
+opt верных итогов меньше 80%
+  evaluate -> evaluate : код выхода 1
+end
+@enduml

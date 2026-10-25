@@ -24,6 +24,12 @@ RAG: поиск по индексу FAISS и ответ LLM с few-shot и Chain
 Если update_index.py обновил индекс, перед следующим вопросом он
 перечитывается: изменилось время изменения faiss_index/index.faiss.
 
+Каждый запрос пишется строкой JSON в logs/logs.jsonl: время, текст
+запроса, сколько чанков передано в LLM и отброшено фильтром, длина
+ответа, флаг успешного ответа (не "Я не знаю"), источники и ответ.
+Если LLM вернула ошибку, запрос пишется с полем error, ошибка
+пробрасывается дальше.
+
 LLM вызывается через OpenAI-совместимый API, адрес, ключ и модель
 берутся из .env: LLM_BASE_URL, LLM_API_KEY, LLM_MODEL.
 
@@ -31,6 +37,8 @@ LLM вызывается через OpenAI-совместимый API, адре�
 """
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from json import dumps
 from logging import WARNING, basicConfig, getLogger
 from os import environ
 from pathlib import Path
@@ -42,12 +50,14 @@ from dotenv import load_dotenv
 from langchain_core.documents import Document
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+from openai import APIError
 
 from build_index import INDEX_DIR, load_index
 
 TOP_K = 4
 MAX_DISTANCE = 0.5
 DONT_KNOW = "Я не знаю."
+QUERY_LOG = Path("logs/logs.jsonl")
 GUARDS = {"prompt", "filter", "sanitize"}
 
 SYSTEM_PROMPT = """\
@@ -128,6 +138,7 @@ class Answer:
     sources: list[str] = field(default_factory=list)
     distances: list[float] = field(default_factory=list)
     filtered: int = 0
+    chunks: int = 0
 
     @property
     def known(self) -> bool:
@@ -177,6 +188,28 @@ def build_messages(
     return messages
 
 
+def log_query(question: str, answer: Answer, error: str | None = None) -> None:
+    record = {
+        "timestamp": datetime.now(UTC).isoformat(timespec="seconds"),
+        "query": question,
+        "chunks_found": answer.chunks > 0,
+        "chunks": answer.chunks,
+        "filtered": answer.filtered,
+        "nearest_distance": round(min(answer.distances), 3) if answer.distances else None,
+        "answer_length": len(answer.text),
+        "success": answer.known and error is None,
+        "sources": answer.sources,
+        "answer": answer.text,
+        "error": error,
+    }
+    try:
+        QUERY_LOG.parent.mkdir(exist_ok=True)
+        with QUERY_LOG.open("a", encoding="utf-8") as file:
+            file.write(dumps(record, ensure_ascii=False) + "\n")
+    except OSError:
+        log.exception("не удалось записать запрос в %s", QUERY_LOG)
+
+
 class Rag:
     def __init__(self, guards: set[str] | None = None) -> None:
         load_dotenv()
@@ -224,11 +257,19 @@ class Rag:
         if "sanitize" in self.guards:
             chunks = [sanitize(doc) for doc in chunks]
         if not chunks:
-            return Answer(DONT_KNOW, distances=distances, filtered=filtered)
-        messages = build_messages(chunks, question, guard_prompt="prompt" in self.guards)
-        text = str(self.llm.invoke(messages).text)
-        sources = [source_name(doc) for doc in cited(text, chunks)]
-        return Answer(text, sources, distances, filtered)
+            answer = Answer(DONT_KNOW, distances=distances, filtered=filtered)
+        else:
+            messages = build_messages(chunks, question, guard_prompt="prompt" in self.guards)
+            try:
+                text = str(self.llm.invoke(messages).text)
+            except APIError as exc:
+                failed = Answer("", distances=distances, filtered=filtered, chunks=len(chunks))
+                log_query(question, failed, type(exc).__name__)
+                raise
+            sources = [source_name(doc) for doc in cited(text, chunks)]
+            answer = Answer(text, sources, distances, filtered, len(chunks))
+        log_query(question, answer)
+        return answer
 
 
 def main() -> None:

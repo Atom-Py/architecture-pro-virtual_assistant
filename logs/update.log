@@ -50,3 +50,6 @@ Traceback (most recent call last):
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 FileNotFoundError: [Errno 2] No such file or directory: 'faiss_index/missing.json'
 2026-10-24T22:09:35Z ERROR index not updated at 2026-10-24, 3 errors
+2026-10-24T22:41:20Z INFO обновление индекса запущено
+2026-10-24T22:41:29Z INFO новые: [], изменённые: [], удалённые: ['kael_solvane.md', 'the_synth_flux.md', 'vc_1_orbital_battle_station.md']
+2026-10-24T22:41:29Z INFO index updated at 2026-10-24, 0 files added, 0 changed, 3 deleted, 0 new chunks, 8 removed chunks, 72 vectors, 211 KB, 0 errors, 8.9 s

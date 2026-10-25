@@ -226,12 +226,12 @@ uv run pytest test_index.py
 
 ### Проверка качества
 
-[test_index.py](test_index.py) задаёт индексу три вопроса на русском и проверяет, что среди трёх найденных чанков есть нужный документ. Все три теста проходят.
+[test_index.py](test_index.py) задаёт индексу три вопроса на русском и проверяет, что среди трёх найденных чанков есть нужный документ. Все три теста проходят. Вопросы взяты по документам, которые остаются в базе и после удаления сущностей в задании 7.
 
 | Запрос | Ожидаемый документ |
 | --- | --- |
-| На какой планете родился Kael Solvane? | kael_solvane.md |
-| Что такое Void Core и чем он вооружён? | vc_1_orbital_battle_station.md |
+| Кто был учителем Ivo-Ren Malden? | ivo_ren_malden.md |
+| Как называются луны Drassa? | drassa.md |
 | Кто такие Grakkar и откуда они родом? | grakkar.md |
 
 ### Пример запроса
@@ -240,22 +240,21 @@ uv run pytest test_index.py
 from build_index import load_index
 
 index = load_index()
-for doc, score in index.similarity_search_with_score("На какой планете родился Kael Solvane?", k=3):
+for doc, score in index.similarity_search_with_score("Как называются луны Drassa?", k=3):
     print(f"{score:.3f}", doc.metadata["chunk_id"], doc.page_content[:200])
 ```
 
 Найденные чанки (расстояние L2, чем меньше, тем ближе):
 
 ```text
-0.355 kael_solvane:0  Kael Solvane was a legendary flux-sensitive human male who was a Sentari Knight
-                      of the Stellar Concord and the prophesied Foretold One of the Sentari Order...
-0.379 kael_solvane:1  A confluence in the Synth Flux, Kael Solvane was born on the desert planet of
-                      Drassa in the Far Fringe Territories in 41 BBO. He was the son of Mira Solvane...
-0.405 taren_solvane:0 Taren Solvane, a flux-sensitive human male, was a legendary Sentari Master who
-                      fought in the Stellar Civil War during the reign of the Stellar Dominion...
+0.405 drassa:1  Following the death of Gorrba and the withdrawal of Dominion forces after the Battle
+                of Sylvar, an enormous power vacuum occurred on the world...
+0.411 drassa:0  Drassa was a sparsely inhabited circumbinary desert planet located in the galaxy's
+                Far Fringe Territories. Part of a binary star system...
+0.463 cerulon:0 Cerulon, located in the Inner Reach, was a terrestrial planet covered with mountains...
 ```
 
-Второй чанк содержит ответ: Kael Solvane родился на пустынной планете Drassa.
+Первый чанк содержит ответ: "It had three moons, Gorrasa, Vermessa, and Kesh Ruu."
 
 ## Задание 4. Реализация RAG-бота с техниками промптинга
 
@@ -576,3 +575,146 @@ docker compose logs updater                           # лог supercronic и з
 Диаграмма PlantUML: [diagrams/update_index.puml](diagrams/update_index.puml).
 
 ![Ежедневное обновление индекса](diagrams/update_index.png)
+
+## Задание 7. Аналитика покрытия и качества базы знаний
+
+### Искусственные пробелы
+
+Из базы удалены документы трёх ключевых сущностей из примера задания:
+
+| Сущность | Удалённый документ |
+| --- | --- |
+| Void Core | vc_1_orbital_battle_station.md |
+| Xarn Velgor (он же Kael Solvane) | kael_solvane.md |
+| Synth Flux | the_synth_flux.md |
+
+Индекс обновлён скриптом из задания 6, в [logs/update.log](logs/update.log):
+
+```text
+2026-10-24T22:41:29Z INFO новые: [], изменённые: [], удалённые: ['kael_solvane.md', 'the_synth_flux.md',
+    'vc_1_orbital_battle_station.md']
+2026-10-24T22:41:29Z INFO index updated at 2026-10-24, 0 files added, 0 changed, 3 deleted, 0 new chunks,
+    8 removed chunks, 72 vectors, 211 KB, 0 errors, 8.9 s
+```
+
+Упоминания этих сущностей в других документах (о битвах, персонажах, планетах) остались, как это бывает в реальной базе знаний.
+
+### Логирование запросов
+
+[rag.py](rag.py) записывает каждый запрос строкой JSON в [logs/logs.jsonl](logs/logs.jsonl). Бот в Docker пишет туда же через том `./logs`.
+
+| Поле | Содержимое |
+| --- | --- |
+| `timestamp` | время запроса, UTC |
+| `query` | текст запроса |
+| `chunks_found`, `chunks` | были ли найдены чанки и сколько передано в LLM |
+| `filtered` | сколько чанков отброшено фильтром инъекций |
+| `nearest_distance` | расстояние до ближайшего чанка |
+| `answer_length` | длина ответа |
+| `success` | успешный ответ: не "Я не знаю" и без ошибки |
+| `sources` | источники ответа |
+| `answer` | ответ |
+| `error` | тип ошибки LLM, если генерация не удалась |
+
+Пример записи (ответ сокращён):
+
+```json
+{
+  "timestamp": "2026-10-24T23:26:56+00:00",
+  "query": "Откуда родом Grakkar?",
+  "chunks_found": true,
+  "chunks": 4,
+  "filtered": 0,
+  "nearest_distance": 0.354,
+  "answer_length": 241,
+  "success": true,
+  "sources": ["grakkar.md, чанк 0"],
+  "answer": "Шаги:\n1. Ищу во фрагментах информацию о происхождении Grakkar.\n2. Во фрагменте [...",
+  "error": null
+}
+```
+
+### Золотой набор
+
+[golden_questions.txt](golden_questions.txt): 13 вопросов в формате `вопрос | ожидаемый ответ | ключевые слова | ожидаемые источники`.
+
+- 8 вопросов на темы, которые есть в базе: бот должен ответить, в ответе должны быть ключевые слова.
+- 3 вопроса на детали удалённых сущностей: кодовое название Void Core, мать Kael Solvane, Living Flux. Эти факты были только в удалённых документах.
+- 2 вопроса на темы, которых в базе не было: столица планеты Velora и цена билета на Eternal Talon.
+
+### Автоматическое тестирование
+
+[evaluate.py](evaluate.py) задаёт вопросы набора через тот же `Rag.ask`, что и бот, поэтому ответы попадают в журнал. Для каждого вопроса считается:
+
+- ответ найден: бот ответил не "Я не знаю";
+- полнота: доля ключевых слов из набора, которые есть в ответе;
+- источник: есть ли среди источников ответа ожидаемый документ;
+- итог: для вопроса с ответом в базе нужен найденный ответ с полнотой не ниже 0.5, для вопроса без ответа нужно "Я не знаю". Ошибка LLM засчитывается как неверный итог.
+
+Результат пишется таблицей в `logs/evaluation.md`. Если верных итогов меньше 80%, скрипт завершается с кодом 1. Проверка обновлённого индекса устроена так: после каждого запуска `update_index.py` запускается `evaluate.py`, и код 1 означает, что новая версия индекса отвечает на золотой набор хуже порога и её нужно разобрать до выхода к пользователям. Для каждого нового документа в набор добавляется вопрос.
+
+```bash
+uv run python evaluate.py                                # отчёт в logs/evaluation.md
+uv run python evaluate.py logs/evaluation_before.md      # отчёт в другой файл
+```
+
+### Результаты
+
+| | До удаления, 80 векторов | После удаления, 72 вектора |
+| --- | --- | --- |
+| Верных итогов | 10 из 13 (77%), код выхода 1 | 13 из 13 (100%), код выхода 0 |
+| Вопросы с ответом в базе | 8 из 8, полнота 1.00, источники верные | 8 из 8, полнота 1.00, источники верные |
+| Вопросы без ответа | 2 из 5 | 5 из 5 |
+
+Полные таблицы: [logs/evaluation_before.md](logs/evaluation_before.md) и [logs/evaluation.md](logs/evaluation.md). До удаления бот ответил на три вопроса об удалённых сущностях по их документам, после удаления на все три отвечает "Я не знаю". Пробелы проявились ровно там, где были удалены документы, а ответы по остальным темам не пострадали.
+
+### Анализ логов
+
+В журнале 43 запроса: два прогона золотого набора после удаления, один до удаления и четыре общих вопроса об удалённых сущностях. Успешных 31.
+
+Темы, где бот не отвечает:
+
+| Тема | Запросы без ответа | Причина |
+| --- | --- | --- |
+| детали Void Core | 2 | документ удалён |
+| семья Kael Solvane | 2 | документ удалён |
+| Living Flux | 2 | документ удалён |
+| столица Velora | 3 | в статье о планете этого нет |
+| цена билета на Eternal Talon | 3 | в базе нет экономических данных |
+
+Нерелевантные и косвенные источники. На общие вопросы об удалённых сущностях бот всё равно отвечает, собирая ответ из упоминаний в чужих документах:
+
+| Вопрос | Источники ответа |
+| --- | --- |
+| Что такое Void Core? | battle_of_orrin.md, battle_of_sylvar.md, q7_t4.md |
+| Кто такой Xarn Velgor? | vorrak.md, stellar_dominion.md |
+| Что такое Synth Flux? | murkveil.md (статья о планете) |
+| Кто такой Kael Solvane? | taren_solvane.md, lyssa_solvane_varella_corvo.md, q7_t4.md |
+
+Такие ответы помечаются как успешные, но они неполные: например, Synth Flux описан по статье о планете Murkveil. Счётчик "Я не знаю" их не ловит, их видно только по источникам: ответ о сущности собран из документов о других сущностях.
+
+Расстояние до ближайшего чанка само по себе пробел не показывает: у полностью покрытого вопроса про луны Drassa оно 0.405, а у вопроса о Synth Flux с косвенным ответом 0.389.
+
+### Отчёт о покрытии
+
+Плохо покрытые темы:
+
+- Void Core, Synth Flux и Kael Solvane (Xarn Velgor): профильных документов нет, остались только упоминания в других статьях.
+- Справочные данные о планетах: столицы и устройство поселений.
+- Экономика и быт: цены, валюты.
+
+Выявлено 5 пробелов на золотом наборе: 3 по удалённым сущностям и 2 по темам, которых в базе не было. Ещё по 4 общим вопросам ответ собран только из косвенных источников, это частичное покрытие трёх сущностей.
+
+Рекомендации по улучшению базы знаний компании:
+
+1. Восстановить или написать профильные документы для Void Core, Synth Flux и Kael Solvane: вопросы о них задают, а ответы сейчас собираются из обрывков.
+2. Дополнить статьи о планетах справочным разделом: столица, население, экономика.
+3. Раз в неделю разбирать журнал запросов: запросы с `success: false` и ответы, где ни один источник не посвящён теме вопроса. Это список задач для авторов документации с понятным приоритетом по частоте вопросов.
+4. Запускать `evaluate.py` после каждого обновления индекса и добавлять в золотой набор вопрос для каждого нового или переписанного документа.
+5. Проверять документы фильтром инъекций до индексации: `root_access.md` из задания 5 вообще не должен попадать в базу.
+
+### Диаграмма последовательности
+
+Обработка запроса, процесс оценки и точки сбоя: пустой индекс, невалидный чанк, ошибка генерации ответа. Исходник: [diagrams/evaluation_sequence.puml](diagrams/evaluation_sequence.puml).
+
+![Обработка запроса и оценка](diagrams/evaluation_sequence.png)
