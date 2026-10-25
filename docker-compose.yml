@@ -3,7 +3,7 @@ services:
     build: .
     env_file: .env
     volumes:
-      # индекс FAISS: index.faiss и index.pkl из build_index.py
+      # индекс FAISS из build_index.py и update_index.py
       - ./faiss_index:/app/faiss_index:ro
       # журнал запросов logs/logs.jsonl
       - ./logs:/app/logs
