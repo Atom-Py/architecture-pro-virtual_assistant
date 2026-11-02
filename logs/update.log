@@ -1,0 +1,55 @@
+2026-10-24T22:05:04Z INFO обновление индекса запущено
+2026-10-24T22:05:16Z INFO новые: ['feron_maddox.md'], изменённые: [], удалённые: []
+2026-10-24T22:05:17Z INFO index updated at 2026-10-24, 1 files added, 0 changed, 0 deleted, 1 new chunks, 0 removed chunks, 80 vectors, 235 KB, 0 errors, 13.1 s
+2026-10-24T22:05:21Z INFO обновление индекса запущено
+2026-10-24T22:05:31Z INFO index updated at 2026-10-24, 0 files added, 0 changed, 0 deleted, 0 new chunks, 0 removed chunks, 80 vectors, 235 KB, 0 errors, 9.6 s
+2026-10-24T22:09:33Z INFO обновление индекса запущено
+2026-10-24T22:09:33Z ERROR попытка 1 из 3 не удалась
+Traceback (most recent call last):
+  File "/app/update_index.py", line 102, in main
+    stats = update()
+            ^^^^^^^^
+  File "/app/update_index.py", line 58, in update
+    previous = loads(MANIFEST.read_text(encoding="utf-8"))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'faiss_index/missing.json'
+2026-10-24T22:09:34Z ERROR попытка 2 из 3 не удалась
+Traceback (most recent call last):
+  File "/app/update_index.py", line 102, in main
+    stats = update()
+            ^^^^^^^^
+  File "/app/update_index.py", line 58, in update
+    previous = loads(MANIFEST.read_text(encoding="utf-8"))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'faiss_index/missing.json'
+2026-10-24T22:09:35Z ERROR попытка 3 из 3 не удалась
+Traceback (most recent call last):
+  File "/app/update_index.py", line 102, in main
+    stats = update()
+            ^^^^^^^^
+  File "/app/update_index.py", line 58, in update
+    previous = loads(MANIFEST.read_text(encoding="utf-8"))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.11/pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'faiss_index/missing.json'
+2026-10-24T22:09:35Z ERROR index not updated at 2026-10-24, 3 errors
+2026-10-24T22:41:20Z INFO обновление индекса запущено
+2026-10-24T22:41:29Z INFO новые: [], изменённые: [], удалённые: ['kael_solvane.md', 'the_synth_flux.md', 'vc_1_orbital_battle_station.md']
+2026-10-24T22:41:29Z INFO index updated at 2026-10-24, 0 files added, 0 changed, 3 deleted, 0 new chunks, 8 removed chunks, 72 vectors, 211 KB, 0 errors, 8.9 s

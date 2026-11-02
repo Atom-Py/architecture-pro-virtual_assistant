@@ -1,0 +1,22 @@
+# Золотой набор вопросов для evaluate.py.
+# Формат: вопрос | ожидаемый ответ | ключевые слова через запятую | ожидаемые источники через запятую
+# Если ключевых слов нет, ответа в базе нет и бот должен ответить "Я не знаю".
+
+# темы, которые есть в базе
+Кто был учителем Ivo-Ren Malden? | Sentari Master Tel-Arin Voss | Tel-Arin Voss | ivo_ren_malden.md
+Как Dax Corvo получил Eternal Talon? | выиграл корабль у Feron Maddox в trivex | Feron, trivex | eternal_talon.md, dax_corvo.md, feron_maddox.md
+Откуда родом Grakkar? | с планеты Thraal | Thraal | grakkar.md, grawrok.md
+Кем был Feron Maddox на Sky Haven? | барон-администратор Sky Haven | барон | feron_maddox.md
+Как называются луны Drassa? | Gorrasa, Vermessa и Kesh Ruu | Gorrasa, Vermessa, Kesh Ruu | drassa.md
+Кем на самом деле был Stellar Sovereign? | Vorrak Lord Xarn Morvath | Xarn Morvath | stellar_dominion.md, xarn_morvath.md
+Какая база Alliance находилась на Kryos? | Frost Base, штаб Alliance to Restore the Concord | Frost Base | kryos.md
+Кому служил Q7-T4 во время Stellar Civil War? | Sentari Knight Taren Solvane | Taren Solvane | q7_t4.md
+
+# удалённые сущности: документы удалены в задании 7
+Под каким кодовым названием строили Void Core? | Я не знаю (было в vc_1_orbital_battle_station.md: Stardust) | |
+Кто был матерью Kael Solvane? | Я не знаю (было в kael_solvane.md: Mira Solvane) | |
+Что такое Living Flux? | Я не знаю (было в the_synth_flux.md: энергия всего живого) | |
+
+# темы, которых в базе нет
+Как называется столица планеты Velora? | Я не знаю | |
+Сколько стоил билет на Eternal Talon? | Я не знаю | |
